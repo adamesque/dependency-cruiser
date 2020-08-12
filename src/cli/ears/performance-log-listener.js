@@ -26,28 +26,42 @@ function formatPerfLine(pTime, pPreviousTime, pMessage) {
   )} ${formatMemory(process.memoryUsage().heapUsed)} ${pMessage}\n`;
 }
 
-module.exports = function setUpTimeLogListener(pStream = process.stderr) {
+module.exports = function setUpTimeLogListener(
+  pStream = process.stderr,
+  pMaxLogLevel = bus.levels.INFO
+) {
   let lPreviousMessage = "start of node process";
   let lPreviousTime = 0;
 
-  pStream.write(chalk.bold("  elapsed heapTotal  heapUsed after step...\n"));
-
-  bus.on("progress", (pMessage) => {
-    const lTime = process.uptime();
-
-    pStream.write(formatPerfLine(lTime, lPreviousTime, lPreviousMessage));
-    lPreviousMessage = pMessage;
-    lPreviousTime = lTime;
+  bus.on("start", (_pMessage, pLevel = bus.levels.SUMMARY) => {
+    if (pLevel <= pMaxLogLevel) {
+      pStream.write(
+        chalk.bold("  elapsed heapTotal  heapUsed after step...\n")
+      );
+    }
   });
 
-  bus.on("end", () => {
-    const lTime = process.uptime();
-    pStream.write(
-      formatPerfLine(
-        lTime,
-        lPreviousTime,
-        `really done (${formatTime(lTime).trim()})`
-      )
-    );
+  bus.on("progress", (pMessage, pLevel = bus.levels.SUMMARY) => {
+    if (pLevel <= pMaxLogLevel) {
+      const lTime = process.uptime();
+
+      pStream.write(formatPerfLine(lTime, lPreviousTime, lPreviousMessage));
+      lPreviousMessage = pMessage;
+      lPreviousTime = lTime;
+    }
+  });
+
+  bus.on("end", (_pMessage, pLevel = 0) => {
+    if (pLevel <= pMaxLogLevel) {
+      const lTime = process.uptime();
+
+      pStream.write(
+        formatPerfLine(
+          lTime,
+          lPreviousTime,
+          `really done (${formatTime(lTime).trim()})`
+        )
+      );
+    }
   });
 };
